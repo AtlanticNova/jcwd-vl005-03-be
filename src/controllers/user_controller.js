@@ -8,7 +8,7 @@ const transporter = require("../helper/transporter")
 const httpStatus = require("../helper/http_status_code")
 
 module.exports.register = async (req, res) => {
-  const { fullname, username, email, password, re_password } = req.body
+  const { username, fullname, email, password, re_password } = req.body
 
   try {
     const { error } = registerSchema.validate(req.body)
@@ -84,14 +84,12 @@ module.exports.register = async (req, res) => {
     }
     res.status(error.status).send(error)
   }
-
 }
 
 module.exports.getUser = async (req, res) => {
 
   try {
     const tokenHeader = req.headers.authorization
-    console.log(tokenHeader)
     const token = tokenHeader.split(" ")[1]
 
     const emailToken = jwt.verify(token, process.env.SECRET_KEY).email
@@ -185,11 +183,14 @@ module.exports.login = async (req, res) => {
 
     const email = USER[0].email
 
-    const token = jwt.sign({ email: email }, process.env.SECRET_KEY)
+    const token = jwt.sign({ 
+      email: email
+
+    }, process.env.SECRET_KEY)
 
     const responseStatus = new createResponse(
       httpStatus.OK,
-      'Login success', true, 1, 1, 'Login Succesfully'
+      'Login Success', true, 1, 1, 'Login Succesfully', token
     )
 
     res.header('authorization', `Bearer ${token}`).send(responseStatus)
