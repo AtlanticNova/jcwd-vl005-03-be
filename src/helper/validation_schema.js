@@ -59,7 +59,7 @@ module.exports.loginSchema = joi.object({
   .alternatives()
   .try(joi.string().min(6).max(45).alphanum(), joi.string().email())
   .required(),
-  password: joi.string().required(),
+  password: joi.string().min(4).required(),
 })
 
 module.exports.editSchema = joi.object({
@@ -67,4 +67,28 @@ module.exports.editSchema = joi.object({
   fullname: joi.string().min(6).max(45).required(),
   dob: joi.string().required(),
   gender: joi.string().required(),
+})
+
+module.exports.resetPasswordSchema = joi.object({
+  email: joi.string().email().required(),
+  password: joiPassword
+    .string()
+    .min(8)
+    .max(45)
+    .minOfSpecialCharacters(1)
+    .minOfLowercase(1)
+    .minOfUppercase(1)
+    .minOfNumeric(1)
+    .noWhiteSpaces()
+    .required()
+    .messages({
+      "password.minOfUppercase": "{#label} should contain at least {#min} uppercase character",
+      "password.minOfSpecialCharacters": "{#label} should contain at least {#min} special character",
+      "password.minOfLowercase": "{#label} should contain at least {#min} lowercase character",
+      "password.minOfNumeric": "{#label} should contain at least {#min} numeric character",
+      "password.noWhiteSpaces": "{#label} should not contain white spaces",
+    }),
+  re_password: joi.valid(joi.ref("password")).messages({
+    "any.only": "Password must match",
+  })
 })
