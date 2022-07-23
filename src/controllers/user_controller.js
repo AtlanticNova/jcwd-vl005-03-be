@@ -60,8 +60,8 @@ module.exports.register = async (req, res) => {
       throw new createError(httpStatus.BAD_REQUEST, 'username and email must be unique.')
     } else {
       const INSERT_USER = `
-            INSERT INTO users (fullname, username, email, password)
-            VALUES(${database.escape(fullname)}, ${database.escape(username)}, ${database.escape(email)}, ${database.escape(hashpassword)});
+            INSERT INTO users (username, fullname, email, password)
+            VALUES(${database.escape(username)}, ${database.escape(fullname)}, ${database.escape(email)}, ${database.escape(hashpassword)});
         `
       await database.execute(INSERT_USER)
 
@@ -87,7 +87,6 @@ module.exports.register = async (req, res) => {
 }
 
 module.exports.getUser = async (req, res) => {
-
   try {
     const tokenHeader = req.headers.authorization
     const token = tokenHeader.split(" ")[1]
