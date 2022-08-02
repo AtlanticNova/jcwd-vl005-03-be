@@ -1,13 +1,14 @@
 const validator = require("password-validator")
 const validatorEmail = require("validator")
 const joi = require("joi")
-const { joiPassword } = require("joi-password")
+const { joiPasswordExtendCore } = require('joi-password');
+const joiPassword = joi.extend(joiPasswordExtendCore);
 
 module.exports.productSchema = joi.object({
   productName: joi.string().min(3).max(45).required(),
   description: joi.string().min(50).max(300).required(),
-  price: joi.number().integer().required(),
-  stock: joi.number().integer().required(),
+  price: joi.number().integer().min(100).required(),
+  stock: joi.number().integer().min(1).required(),
   idCategory: joi.number().integer().required(),
   image: joi.string()
 })
@@ -15,6 +16,13 @@ module.exports.productSchema = joi.object({
 module.exports.categorySchema = joi.object({
   categoryName: joi.string().min(3).max(45).required(),
   slug: joi.string().min(3).max(45).required(),
+})
+
+module.exports.stockopnameSchema = joi.object({
+  id_product: joi.number().integer().required(),
+  qty: joi.number().min(1).required(),
+  status: joi.string().required(),
+  initStock: joi.number().min(1).required()
 })
 
 const passwordSchema = new validator();
@@ -56,9 +64,9 @@ module.exports.registerSchema = joi.object({
 
 module.exports.loginSchema = joi.object({
   login: joi
-  .alternatives()
-  .try(joi.string().min(6).max(45).alphanum(), joi.string().email())
-  .required(),
+    .alternatives()
+    .try(joi.string().min(6).max(45).alphanum(), joi.string().email())
+    .required(),
   password: joi.string().min(4).required(),
 })
 

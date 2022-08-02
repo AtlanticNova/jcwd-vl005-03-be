@@ -9,6 +9,7 @@ class newResponse {
     success_count,
     data = [],
     token,
+    is_verified,
   ) {
     this.status = status
     this.operation = operation
@@ -17,6 +18,7 @@ class newResponse {
     this.success_count = success_count
     this.data = data
     this.token = token
+    this.is_verified = is_verified
   }
 }
 
