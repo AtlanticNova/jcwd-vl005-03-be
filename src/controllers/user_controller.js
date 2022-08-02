@@ -11,10 +11,10 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const transporter = require("../helper/transporter");
 const httpStatus = require("../helper/http_status_code");
+const newError = require("../helper/create_error");
 
 module.exports.register = async (req, res) => {
   const { username, fullname, email, password, re_password } = req.body;
-
   try {
     const { error } = registerSchema.validate(req.body);
     if (error) {
@@ -26,11 +26,9 @@ module.exports.register = async (req, res) => {
         1,
         error.details[0].message
       );
-
-      res.status(responseStatus.status).send(responseStatus);
+      return res.status(responseStatus.status).send(responseStatus);
       throw new createError(httpStatus.BAD_REQUEST, error.details[0].message);
     }
-
     if (password !== re_password) {
       const responseStatus = new createResponse(
         httpStatus.BAD_REQUEST,
@@ -40,28 +38,22 @@ module.exports.register = async (req, res) => {
         1,
         "password doesn't match"
       );
-
-      res.status(responseStatus.status).send(responseStatus);
+      return res.status(responseStatus.status).send(responseStatus);
     }
-
     const hashpassword = await bcrypt.hash(password, 10);
-
     const token = jwt.sign({ email: email }, process.env.SECRET_KEY);
-
     const mail = {
       from: '"Admin" <idiotcolony97@gmail.com>',
       to: `${email}`,
       subject: "Account Verification",
       html: `
                 <p>please verify your account using this link.</p>
-                <a href='http://localhost:3000/verification/${token}'>Verify your account</a>
+                <a href='http://localhost:3000/verification?token=${token}'>Verify your account</a>
             `,
     };
-
     await transporter.sendMail(mail);
 
     const CHECK_USER = `SELECT * FROM users WHERE username = ? OR email = ?;`;
-
     const [USER] = await database.execute(CHECK_USER, [username, email]);
     if (USER.length) {
       const responseStatus = new createResponse(
@@ -72,8 +64,7 @@ module.exports.register = async (req, res) => {
         1,
         "username and email must be unique."
       );
-
-      res.status(responseStatus.status).send(responseStatus);
+      return res.status(responseStatus.status).send(responseStatus);
       throw new createError(
         httpStatus.BAD_REQUEST,
         "username and email must be unique."
@@ -93,16 +84,16 @@ module.exports.register = async (req, res) => {
         true,
         1,
         1,
-        `Register user success, please check your email`
+        `Register user success, please check your email`,
+        token
       );
-
-      res.header("authorization", `Bearer ${token}`).send(responseStatus);
+      return res
+        .header("authorization", `Bearer ${token}`)
+        .send(responseStatus);
     }
   } catch (error) {
     console.log("error : ", error);
-
     const isTrusted = error instanceof createError;
-
     if (!isTrusted) {
       error = new createError(
         httpStatus.INTERNAL_SERVICE_ERROR,
@@ -110,7 +101,7 @@ module.exports.register = async (req, res) => {
       );
       console.log(error);
     }
-    res.status(error.status).send(error);
+    return res.status(error.status).send(error);
   }
 };
 
@@ -118,19 +109,14 @@ module.exports.getUser = async (req, res) => {
   try {
     const tokenHeader = req.headers.authorization;
     const token = tokenHeader.split(" ")[1];
-
     const emailToken = jwt.verify(token, process.env.SECRET_KEY).email;
-
     const EXIST_USER = `SELECT * FROM users WHERE email = ?;`;
-
     const [USER] = await database.execute(EXIST_USER, [emailToken]);
     if (!USER.length) {
       throw new createError(httpStatus.BAD_REQUEST, "user not registered.");
     }
-
     delete USER[0].password;
-
-    const respons = new createResponse(
+    const respond = new createResponse(
       httpStatus.OK,
       "Login Success",
       true,
@@ -138,31 +124,24 @@ module.exports.getUser = async (req, res) => {
       1,
       USER[0]
     );
-    res.status(respons.status).send(respons);
+    res.status(respond.status).send(respond);
   } catch (error) {
     console.log("error: ", error);
   }
 };
 
 module.exports.verifyUser = async (req, res) => {
-  const tokenHeader = req.headers.authorization;
-  const token = tokenHeader.split(" ")[1];
+  const token = req.query.token;
 
   try {
     const emailToken = jwt.verify(token, process.env.SECRET_KEY).email;
-
     const EXIST_USER = `SELECT * FROM users WHERE email = ?;`;
-
     const [USER] = await database.execute(EXIST_USER, [emailToken]);
-
     if (!USER.length) {
       throw new createError(httpStatus.BAD_REQUEST, "user not registered.");
     }
-
     const UPDT_STATUS = `UPDATE users SET status = 'verified' WHERE email = ?;`;
-
     await database.execute(UPDT_STATUS, [emailToken]);
-
     const response = new createResponse(
       httpStatus.OK,
       "verified success",
@@ -182,7 +161,6 @@ module.exports.login = async (req, res) => {
 
   try {
     const { error } = loginSchema.validate(req.body);
-
     if (error) {
       const responseStatus = new createResponse(
         httpStatus.BAD_REQUEST,
@@ -192,7 +170,6 @@ module.exports.login = async (req, res) => {
         1,
         error.details[0].message
       );
-
       res.status(responseStatus.status).send(responseStatus);
       throw new createError(httpStatus.BAD_REQUEST, error.details[0].message);
     }
@@ -208,7 +185,6 @@ module.exports.login = async (req, res) => {
         1,
         "username atau email salah."
       );
-
       res.status(responseStatus.status).send(responseStatus);
       throw new createError(
         httpStatus.BAD_REQUEST,
@@ -227,14 +203,11 @@ module.exports.login = async (req, res) => {
         1,
         "password salah."
       );
-
       res.status(responseStatus.status).send(responseStatus);
-
       throw new createError(httpStatus.BAD_REQUEST, "password salah.");
     }
 
     const email = USER[0].email;
-
     const token = jwt.sign(
       {
         email: email,
@@ -249,50 +222,52 @@ module.exports.login = async (req, res) => {
       1,
       1,
       "Login Succesfully",
-      token
+      token,
+      (status = USER[0].status)
     );
-
     res.header("Authorization", `Bearer ${token}`).send(responseStatus);
   } catch (error) {
     console.log("error: ", error);
   }
 };
 
-module.exports.keepLogin = async (req, resp) => {
-  const email = req.email;
-  try {
-    const checkUser = `SELECT * FROM users WHERE email = ?;`;
-    const [userData] = await db.execute(checkUser, [email]);
-    console.log(`userData at keep login:`, userData);
-    if (!userData.length) {
-      throw new createError(
-        httpStatus.NOT_FOUND,
-        `user with email from token doesn't found`
-      );
-    }
+// module.exports.keepLogin = async (req, resp) => {
+//   const tokenHeader = req.headers.authorization;
+//   const token = tokenHeader.split(" ")[1];
+//   const emailToken = jwt.verify(token, process.env.SECRET_KEY).email;
 
-    delete userData[0].password;
-    const respond = new createRespond(
-      httpStatus.OK,
-      msg.OK,
-      "Keep User Login",
-      1,
-      1,
-      userData[0]
-    );
-    resp.status(respond.status).send(respond.data);
-  } catch (err) {
-    const throwError = err instanceof createError;
-    if (!throwError) {
-      new createError(
-        httpStatus.INTERNAL_SERVICE_ERROR,
-        msg.INTERNAL_SERVICE_ERROR
-      );
-    }
-    console.log("error at keep login:", err);
-    resp.status(err.status).send(err.message);
-  }
-};
+//   try {
+//     const checkUser = `SELECT * FROM users WHERE email = ?;`;
+//     const [userData] = await database.execute(checkUser, [emailToken]);
+//     console.log(`userData at keep login:`, userData);
+//     if (!userData.length) {
+//       throw new createError(
+//         httpStatus.NOT_FOUND,
+//         `user with email from token doesn't found`
+//       );
+//     }
+
+//     delete userData[0].password;
+//     const respond = new createResponse(
+//       httpStatus.OK,
+//       httpStatus.OK,
+//       "Keep User Login",
+//       1,
+//       1,
+//       userData[0],
+//       token,
+//       (status = userData[0].status)
+//     );
+//     resp.status(respond.status).send(respond.data);
+//   } catch (err) {
+//     const throwError = err instanceof createError;
+//     if (!throwError) {
+//       new createError(httpStatus.INTERNAL_SERVICE_ERROR, `Keep Login is ERROR`);
+//       console.log("error at keep login:", err);
+//       resp.status(err.status).send(err.message);
+//     }
+//   }
+// };
 
 module.exports.forgotPassword = async (req, resp) => {
   const { email } = req.body;
@@ -402,4 +377,63 @@ module.exports.resetPassword = async (req, resp) => {
     console.log("error at reset password:", err);
     resp.status(err.status).send(err.message);
   }
+};
+
+module.exports.resendVerificationEmail = async (req, res) => {
+  const { email } = req.body;
+  try {
+    const token = jwt.sign({ email: email }, process.env.SECRET_KEY);
+    const mail = {
+      from: '"Admin" <idiotcolony97@gmail.com>',
+      to: `${email}`,
+      subject: "Account Verification",
+      html: `
+                <p>please verify your account using this link.</p>
+                <a href='http://localhost:3000/verification?token=${token}'>Verify your account</a>
+            `,
+    };
+    await transporter.sendMail(mail);
+
+    const CHECK_USER = `SELECT email FROM users WHERE email = ?;`;
+    const [USER] = await database.execute(CHECK_USER, [email]);
+    if (!USER.length) {
+      const responseStatus = new createResponse(
+        httpStatus.BAD_REQUEST,
+        "Resend email failed",
+        true,
+        1,
+        1,
+        `Resend email failed`
+      );
+      return res.status(responseStatus.status).send(responseStatus);
+    } else {
+      const responseStatus = new createResponse(
+        httpStatus.OK,
+        "Resend email success",
+        true,
+        1,
+        1,
+        `Resend email success`,
+        token
+      );
+      return res
+        .header("authorization", `Bearer ${token}`)
+        .send(responseStatus);
+    }
+  } catch (error) {
+    console.log("error : ", error);
+    const isTrusted = error instanceof createError;
+    if (!isTrusted) {
+      error = new createError(
+        httpStatus.INTERNAL_SERVICE_ERROR,
+        error.sqlMessage
+      );
+      console.log(error);
+    }
+    return res.status(error.status).send(error);
+  }
+};
+
+module.exports.logout = async (req, resp) => {
+  localStorage.removeItem("token");
 };
